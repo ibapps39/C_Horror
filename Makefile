@@ -1,0 +1,85 @@
+TARGET			= GAME
+BUILD_DIR		= .build
+SRC_DIR			?= src
+INC_DIR			?= include
+CC				?= gcc
+
+CFLAGS_BASE		= -std=c17 -I$(INC_DIR)
+
+CFLAGS_STRICT = -Wall -Wextra -Wpedantic -Wconversion -Wshadow -Wold-style-definition
+
+CFLAGS_RELEASE	= -O3 -march=native -flto=auto -fno-plt -fomit-frame-pointer
+
+CFLAGS_DEBUG	= -O0 -g3 -ggdb3 -fno-strict-aliasing -fstack-protector-strong \
+				  -DDEBUG -fno-omit-frame-pointer
+
+LDLIBS_BASE		= -lm
+
+LDLIBS_RELEASE	= -flto
+
+LDLIBS_DEBUG	=
+
+SRCS			= $(wildcard $(SRC_DIR)/*.c)
+OBJS			= $(addprefix $(BUILD_DIR)/, $(notdir $(SRCS:.c=.o)))
+DEPS			= $(OBJS:.o=.d)
+
+ifeq ($(OS),Windows_NT)
+	PKG_CONFIG	:= $(shell where pkg-config >NUL 2>&1 && echo "yes" || echo "no")
+	CLEAN		= del /f $(TARGET).exe & if exist $(BUILD_DIR) rmdir /s /q $(BUILD_DIR)
+	MKDIR		= if not exist $(BUILD_DIR) mkdir
+else
+	CFLAGS_DEBUG	+= -fsanitize=address -fsanitize-address-use-after-scope \
+					   -ftrapv
+	LDLIBS_DEBUG	+= -fsanitize=address -fsanitize-address-use-after-scope
+	PKG_CONFIG	:= $(shell command -v pkg-config >/dev/null 2>&1 && echo "yes" || echo "no")
+	CLEAN		= $(RM) $(TARGET) && $(RM) -r $(BUILD_DIR)
+	MKDIR		= mkdir -p $(BUILD_DIR)
+endif
+
+ifeq ($(PKG_CONFIG),yes)
+#     CFLAGS_BASE += $(shell pkg-config --cflags sdl3 )
+#     LDLIBS_BASE += $(shell pkg-config --libs sdl3)
+    CFLAGS_BASE += $(shell pkg-config --cflags raylib )
+    LDLIBS_BASE += $(shell pkg-config --libs raylib )
+else
+    $(error "pkg-config is not available. Please install pkg-config.")
+endif
+
+CFLAGS		?= $(CFLAGS_BASE)
+LDLIBS		?= $(LDLIBS_BASE)
+
+$(BUILD_DIR):
+	$(MKDIR)
+
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
+
+$(TARGET): $(OBJS)
+	$(CC) $(LDLIBS) $^ -o $@
+
+-include $(DEPS)
+
+.PHONY: all clean run rebuild release debug
+
+all: $(TARGET)
+
+release: CFLAGS = $(CFLAGS_BASE) $(CFLAGS_STRICT) $(CFLAGS_RELEASE)
+release: LDLIBS = $(LDLIBS_BASE) $(LDLIBS_RELEASE)
+release: all
+
+debug: CFLAGS = $(CFLAGS_BASE) $(CFLAGS_STRICT) $(CFLAGS_DEBUG)
+debug: LDLIBS = $(LDLIBS_BASE) $(LDLIBS_DEBUG)
+debug: all
+
+
+profile: CFLAGS = $(CFLAGS_BASE) -g -O1 -fno-omit-frame-pointer
+profile: LDLIBS = $(LDLIBS_BASE)
+profile: all
+
+clean:
+	$(CLEAN)
+
+run: $(TARGET)
+	./$<
+
+rebuild: clean debug
