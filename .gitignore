@@ -1,5 +1,5 @@
 *.DS_Store
-resources/
+resources/*
 .build/
 .vscode/
 GAME
