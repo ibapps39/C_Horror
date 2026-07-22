@@ -272,36 +272,36 @@ typedef struct DEMO_EDGE
 
 typedef struct DEMO_SCENE
 {
-    const char* scn_name;
-    Texture2D scene_background;
-    Sound scene_sound;
-    Hotspot* hotspots;
     Demo_Node_id id;
+    const char* scn_name;
+    char* scn_background;
+    char* scn_sound;
+    Hotspot* hotspots;
     Demo_Edge* edges;
     int demo_edge_count;
 } Demo_Scene;
 
 Demo_Scene Demo_Scene_Init(
+    const Demo_Node_id id,
     const char* name,
-    const Texture2D background,
-    const Sound sound,
-    Hotspot* hotspots,
-    Demo_Node_id id,
-    Demo_Edge* edges,
-    int edge_count)
+    const char* background,
+    const char* sound,
+    const Hotspot* hotspots,
+    const Demo_Edge* edges,
+    const int edge_count
+)
 {
-    Demo_Scene new_scene;
+    Demo_Scene scene;
 
-    new_scene.scn_name = name;
-    new_scene.scene_background = background;
-    new_scene.scene_sound = sound;
-    new_scene.hotspots = hotspots;
-    new_scene.id = id;
+    scene.scn_name = name;
+    scene.scn_background = background;
+    scene.scn_sound = sound;
+    scene.hotspots = hotspots;
+    scene.id = id;
+    scene.edges = edges;
+    scene.demo_edge_count = edge_count;
 
-    new_scene.edges = edges;
-    new_scene.demo_edge_count = edge_count;
-
-    return new_scene;
+    return scene;
 }
 
 Demo_Node_id demo_traverse_edge(Demo_Node_id* current_scene_id, const Demo_Edge edge)
@@ -310,12 +310,16 @@ Demo_Node_id demo_traverse_edge(Demo_Node_id* current_scene_id, const Demo_Edge 
     return edge.to;
 }
 
-void demo_load_scene(Demo_Scene* scene)
+typedef struct CURRENT_SCENE
 {
-    // draw the background
-    DrawTexture(scene->scene_background, 0, 0, WHITE);
-    // etc ... IN PROGRESS
-}
+    Demo_Node_id id;
+    char* name;
+    Texture2D background;
+    Sound sound;
+    Hotspot* hotspots;
+    Demo_Edge* edges;
+    int edge_count;
+} Current_Scene;
 
 void demo_test(void)
 {
@@ -334,28 +338,40 @@ void demo_test(void)
     FilePathList demo_sounds = LoadDirectoryFiles(DEMO_SOUND_DIR);
     FilePathList demo_images = LoadDirectoryFiles(DEMO_IMAGE_DIR);
 
-    Demo_Scene TEST_SCENE = Demo_Scene_Init("00", demo_load_texture(demo_images.paths[1], demo_res_x, demo_res_y), LoadSound(demo_sounds.paths[0]), NULL, 0, NULL, 0);
+    // "Globals"
+    Sound CURRENT_SOUND = (Sound){0};
+    Current_Scene CURRENT_SCENE;
+    Camera2D DEMO_CAM = demo_get_cam(demo_res_x, demo_res_x);
+    int CURRENT_NODE = 0;
 
-    Sound current_sound = (Sound){0};
-    Demo_Scene current_scene = (Demo_Scene){0};
-    Camera2D demo_cam = demo_get_cam(demo_res_x, demo_res_x);
-    int current_node = 0;
-    current_scene = TEST_SCENE;
-    current_sound = current_scene.scene_sound;
+    Demo_Scene TEST_SCENE = Demo_Scene_Init(0, "untitled", demo_images.paths[1], demo_sounds.paths[0], NULL, NULL, 0);
+
+    CURRENT_SCENE.id = TEST_SCENE.id;
+    CURRENT_SCENE.name = TEST_SCENE.scn_name;
+    CURRENT_SCENE.background = LoadTexture(TEST_SCENE.scn_background);
+    CURRENT_SCENE.sound = LoadSound(TEST_SCENE.scn_sound);
+    CURRENT_SCENE.hotspots = TEST_SCENE.hotspots;
+    CURRENT_SCENE.edges = TEST_SCENE.edges;
+    CURRENT_SCENE.edge_count = TEST_SCENE.demo_edge_count;
+
+    Texture2D current_cursor_texture = demo_load_texture(demo_images.paths[0], demo_res_x*.05, demo_res_y*.05);
     while (!WindowShouldClose())
     {
-        
-        if (!IsSoundPlaying(current_sound))
-            PlaySound(current_sound);
-        //on_resize(IsWindowResized());
-        
+        if(!IsSoundPlaying(CURRENT_SCENE.sound))
+        if(IsWindowResized()) { 
+            demo_res_x = GetScreenWidth(); demo_res_y = GetScreenHeight();
+            current_cursor_texture = demo_load_texture(demo_images.paths[0], demo_res_x*.05, demo_res_y*.05);
+        }
         float dt = GetFrameTime();
-
+        
         BeginDrawing();
         ClearBackground(BLACK);
-        BeginMode2D(demo_cam);
-        demo_load_scene(&current_scene);
+        BeginMode2D(DEMO_CAM);
+        DrawTexture(CURRENT_SCENE.background, 0, 0, WHITE);
+        DrawText(CURRENT_SCENE.name, demo_res_x/2, demo_res_y*.1, 20, YELLOW);
         //demo_draw_cursor();
+        //demo_draw_hotspots();
+        DrawTexture(current_cursor_texture, GetMouseX(), GetMouseY(), WHITE);
         EndMode2D();
         // END_DRAW // END_DRAW // END_DRAW // END_DRAW // END_DRAW // // END_DRAW // END_DRAW // END_DRAW // END_DRAW // END_DRAW // // END_DRAW // END_DRAW // END_DRAW // END_DRAW // END_DRAW //
         EndDrawing();
