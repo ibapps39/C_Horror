@@ -13,6 +13,12 @@ typedef Vector2 Vec2;
 #define DEMO_WINDOW_TITLE "DEMO_RAYLIB_HORROR_POINT_CLICK"
 #define DEMO_WINDOW_SETTING FLAG_WINDOW_RESIZABLE
 #define DEMO_MAX_SOUNDS 1
+
+#define TOP_LEFT        (Vec2){.x = (float)GetScreenWidth() * (float).25, .y = (float)GetScreenHeight() * (float).25}
+#define TOP_RIGHT       (Vec2){.x = (float)GetScreenWidth() * (float).75, .y = (float)GetScreenHeight() * (float).25}
+#define BOTTOM_LEFT     (Vec2){.x = (float)GetScreenWidth() * (float).25, .y = (float)GetScreenHeight() * (float).75}
+#define BOTTOM_RIGHT    (Vec2){.x = (float)GetScreenWidth() * (float).75, .y = (float)GetScreenHeight() * (float).75}
+#define CENTER          (Vec2){.x = (float)GetScreenWidth() * (float).5,  .y = (float)GetScreenHeight() * (float).50}
 // GLOBALS
 int DEMO_RES_X = 400;
 int DEMO_RES_Y = 600;
@@ -167,35 +173,28 @@ Hotspot demo_create_hotspot(Vec2 pos, float width, float height, Demo_Edge edge)
     return h;
 }
 
-void demo_make_demo_hotspots(Hotspot *hotspots)
+void demo_hotspot_spots_adjust(Hotspot *hotspots)
 {
-    Vec2 p = {.x = GetScreenWidth() / 2, .y = GetScreenHeight() / 2};
     int w, h;
-    w = GetScreenWidth() / 10;
+    w = fminf((float)GetScreenWidth() / 10.0f, 100.0f);
     h = w;
-    Demo_Edge e = {.from = 0, .to = 0};
+    Demo_Edge e = {.from = hotspots->edge.from, .to = hotspots->edge.to};
+    
+    Vec2 p = CENTER;
     hotspots[0] = demo_create_hotspot(p, w, h, e);
-    // Top left
-    p.x = GetScreenWidth() * .25;
-    p.y = GetScreenHeight() * .25;
+    p = TOP_LEFT;
     hotspots[1] = demo_create_hotspot(p, w, h, e);
-    // Bottom Left
-    p.x = GetScreenWidth() * .25;
-    p.y = GetScreenHeight() * .75;
+    p = BOTTOM_LEFT;
     hotspots[2] = demo_create_hotspot(p, w, h, e);
-    // Bottom Right
-    p.x = GetScreenWidth() * .75;
-    p.y = GetScreenHeight() * .75;
+    p = BOTTOM_RIGHT;
     hotspots[3] = demo_create_hotspot(p, w, h, e);
-    // Top Right
-    p.x = GetScreenWidth() * .75;
-    p.y = GetScreenHeight() * .25;
+    p = TOP_RIGHT;
     hotspots[4] = demo_create_hotspot(p, w, h, e);
 }
 
-void demo_draw_hotspots(Hotspot *hotspots)
+void demo_draw_hotspots(Hotspot *hotspots, int hotspot_count)
 {
-    for (size_t i = 0; i < DEMO_MAX_HOTSPOTS; i++)
+    for (size_t i = 0; i < (size_t)hotspot_count; i++)
     {
         DrawRectangleLines(hotspots[i].r.x, hotspots[i].r.y, hotspots[i].r.width, hotspots[i].r.height, RED);
     }
@@ -265,23 +264,16 @@ bool demo_load_sounds(const char *dir, Sound *dst)
 
 Texture2D demo_load_texture(const char *file_name, const int w, const int h)
 {
+    printf("\n\n\n DEMO LOAD TEXTURE  - START \n\n\n");
+    printf("Loading image %s\n", file_name);
     Image img_i = LoadImage(file_name);
     ImageResize(&img_i, w, h);
     Texture2D t = LoadTextureFromImage(img_i);
     UnloadImage(img_i);
+    printf("\n\n\n DEMO LOAD TEXTURE  - END \n\n\n");
     return t;
 }
 
-typedef struct GAME_TEXTURES_DICTIONARY_ENTRY
-{
-    char* file_name;
-    Texture2D texture;
-} GAME_TEXTURES_DICTIONARY_ENTRY;
-typedef GAME_TEXTURES_DICTIONARY_ENTRY* GAME_TEXTURES_DICTIONARY;
-int demo_load_from_textures(const char *file_name, const GAME_TEXTURES_DICTIONARY td)
-{
-    
-}
 
 typedef struct DEMO_SCENE
 {
@@ -338,10 +330,10 @@ typedef struct CURRENT_SCENE
     int hotspot_count;
 } Current_Scene;
 
-void update_scene(Current_Scene *target, Demo_Scene *source, bool unload_sound, Texture* textures)
+void update_scene(Current_Scene *target, Demo_Scene *source, bool unload_sound, Texture2D* TEXTURES_CACHE)
 {
-    UnloadTexture(target->background);
-    target->background = demo_load_texture(source->scn_background, GetScreenWidth(), GetScreenHeight());
+
+    target->background = TEXTURES_CACHE[source->id];
     target->id = source->id;
     target->name = source->scn_name;
     printf("\n\nBACKGROUND:%s\n", source->scn_background);
@@ -384,14 +376,44 @@ FilePathList LoadDirectoryFilesSorted(const char *dir)
     return list;
 }
 
+void update_bg_render(Rectangle* r, const int res_x, const int res_y)
+{
+    r->x = 0;
+    r->y = 0;
+    r->width *= GetScreenWidth() / res_y; 
+    r->height *= GetScreenHeight() / res_x;
+}
+
+void refresh_hotspots(Current_Scene* CS)
+{
+    if(CS->hotspot_count < 1) {return;}
+    for(int i = 0; i < CS->hotspot_count; i++)
+    {
+        demo_hotspot_spots_adjust(CS->hotspots);
+    }
+}
+
+void draw_scene(Current_Scene* CS, Texture2D* TEXTURE_POOL, int internal_res_x, int internal_res_y)
+{
+    Rectangle src = {0, 0, internal_res_x, internal_res_y};
+    Rectangle dst = {0, 0, GetScreenWidth(), GetScreenHeight()};
+    DrawTexturePro(TEXTURE_POOL[CS->id], src, dst, (Vec2){0}, 0, WHITE);
+}
+
+typedef struct TEX_MAP_KEY
+{
+    const char* file_name;
+    unsigned int index;
+    Texture2D* TX_POOL;
+} Texture_Key;
+
+
 void demo_test(void)
 {
 
-    int demo_res_x = 500;
-    int demo_res_y = 500;
-    DEMO_RES_X = demo_res_x;
-    DEMO_RES_Y = demo_res_y;
-
+    int demo_res_x = 600;
+    int demo_res_y = 600;
+        
     const int default_fps = DEMO_FPS;
     SetConfigFlags(DEMO_WINDOW_SETTING);
     InitWindow(demo_res_x, demo_res_y, DEMO_WINDOW_TITLE);
@@ -400,50 +422,57 @@ void demo_test(void)
     SetTargetFPS(DEMO_FPS);
     HideCursor();
 
+    const char* DEMO_BCKGS_DIR = TextFormat("%s/%s", DEMO_IMAGE_DIR, "scenes");
+    const char* DEMO_CURSORS_DIR = TextFormat("%s/%s", DEMO_IMAGE_DIR, "cursors");
+
     FilePathList demo_sounds = LoadDirectoryFilesSorted(DEMO_SOUND_DIR);
-    FilePathList demo_images = LoadDirectoryFilesSorted(DEMO_IMAGE_DIR);
-    printf("FIRST IMAGE LOADED: %s \n", demo_images.paths[0]);
+    FilePathList demo_bckgs = LoadDirectoryFilesSorted(DEMO_BCKGS_DIR);
+    FilePathList demo_cursors = LoadDirectoryFilesSorted(DEMO_CURSORS_DIR);
 
     // "Globals"
     Sound CURRENT_SOUND = (Sound){0};
     Current_Scene CURRENT_SCENE = (Current_Scene){0};
+    
     Camera2D DEMO_CAM = demo_get_cam(demo_res_x, demo_res_x);
-    int CURRENT_NODE = 0;
-
-    const int TOTAL_SCENE_COUNT = 4;
+    const int TOTAL_SCENE_COUNT = demo_bckgs.count;
     Demo_Scene DEMO_GAME_SCENES[TOTAL_SCENE_COUNT];
 
-    const int MAX_TEXTURES = 50;
+    const int MAX_TEXTURES = demo_bckgs.count+demo_cursors.count;
     Texture2D* DEMO_GAME_TEXTURES = (Texture2D*)malloc(sizeof(Texture2D) * MAX_TEXTURES);
+    Texture2D* DEMO_CURSOR_TEXTURES = (Texture2D*)malloc(sizeof(Texture2D) * demo_cursors.count);
+
     for(size_t i = 0; i < MAX_TEXTURES; ++i)
     {
-        DEMO_GAME_TEXTURES[i] = demo_load_texture(demo_images.paths[i], demo_res_x, demo_res_y);
+        DEMO_GAME_TEXTURES[i] = demo_load_texture(demo_bckgs.paths[i], demo_res_x, demo_res_y);
+        if(i < demo_cursors.count) DEMO_CURSOR_TEXTURES[i] = demo_load_texture(demo_cursors.paths[i], demo_res_x, demo_res_y);
     }
 
-    Demo_Scene TEST_SCENE_0 = Demo_Scene_Init(0, "scene 1", demo_images.paths[1], demo_sounds.paths[0], 1, 5);
-    Demo_Scene TEST_SCENE_1 = Demo_Scene_Init(1, "scene 2", demo_images.paths[2], demo_sounds.paths[0], 1, 5);
-    Demo_Scene TEST_SCENE_2 = Demo_Scene_Init(2, "scene 3", demo_images.paths[3], demo_sounds.paths[0], 1, 5);
-    Demo_Scene TEST_SCENE_3 = Demo_Scene_Init(3, "scene 4", demo_images.paths[4], demo_sounds.paths[0], 1, 5);
+    Demo_Scene TEST_SCENE_0 = Demo_Scene_Init(0, "scene 0", demo_bckgs.paths[0], demo_sounds.paths[0], 1, 5);
+    Demo_Scene TEST_SCENE_1 = Demo_Scene_Init(1, "scene 1", demo_bckgs.paths[1], demo_sounds.paths[0], 1, 5);
+    Demo_Scene TEST_SCENE_2 = Demo_Scene_Init(2, "scene 2", demo_bckgs.paths[2], demo_sounds.paths[0], 1, 5);
+    Demo_Scene TEST_SCENE_3 = Demo_Scene_Init(3, "scene 3", demo_bckgs.paths[3], demo_sounds.paths[0], 1, 5);
+    Demo_Scene TEST_SCENE_4 = Demo_Scene_Init(4, "scene 4", demo_bckgs.paths[4], demo_sounds.paths[0], 1, 5);
 
     DEMO_GAME_SCENES[0] = TEST_SCENE_0;
     DEMO_GAME_SCENES[1] = TEST_SCENE_1;
     DEMO_GAME_SCENES[2] = TEST_SCENE_2;
     DEMO_GAME_SCENES[3] = TEST_SCENE_3;
+    DEMO_GAME_SCENES[4] = TEST_SCENE_4;
 
-    for (int i = 0; i < 4; ++i)
+    for(int i = 0; i < TOTAL_SCENE_COUNT; ++i)
     {
-        demo_make_demo_hotspots(DEMO_GAME_SCENES[i].hotspots);
+        for(int j = 0; j < DEMO_GAME_SCENES[i].demo_edge_count; ++j)
+        {
+        
+            DEMO_GAME_SCENES[i].hotspots[j].edge.from = i < 1 ? DEMO_GAME_SCENES[i].id : DEMO_GAME_SCENES[i].id - 1;
+            DEMO_GAME_SCENES[i].hotspots[j].edge.to = (i < TOTAL_SCENE_COUNT-1) ? DEMO_GAME_SCENES[i].id + 1 : DEMO_GAME_SCENES[0].id;
+        }
     }
 
-    DEMO_GAME_SCENES[0].hotspots[0].edge.to = DEMO_GAME_SCENES[0].id + 1;
-    DEMO_GAME_SCENES[1].hotspots[0].edge.to = DEMO_GAME_SCENES[1].id + 1;
-    DEMO_GAME_SCENES[2].hotspots[0].edge.to = DEMO_GAME_SCENES[2].id + 1;
-    DEMO_GAME_SCENES[3].hotspots[0].edge.to = DEMO_GAME_SCENES[0].id;
-
-    update_scene(&CURRENT_SCENE, &DEMO_GAME_SCENES[0], true);
+    update_scene(&CURRENT_SCENE, &DEMO_GAME_SCENES[0], false, DEMO_GAME_TEXTURES);
 
     bool in_hotspot = false;
-    Texture2D current_cursor_texture = demo_load_texture(demo_images.paths[0], demo_res_x * .05, demo_res_y * .05);
+    Texture2D current_cursor_texture = demo_load_texture(TextFormat("%s/cursor_0.png", DEMO_CURSORS_DIR), demo_res_x*.05, demo_res_y*.05);
     int CURRENT_HOTSPOT_IN_SCENE = -1;
 
     while (!WindowShouldClose())
@@ -454,39 +483,30 @@ void demo_test(void)
         }
         if (IsWindowResized())
         {
-            demo_res_x = GetScreenWidth();
-            demo_res_y = GetScreenHeight();
             UnloadTexture(current_cursor_texture);
-            UnloadTexture(CURRENT_SCENE.background);
-            current_cursor_texture = demo_load_texture(demo_images.paths[0], demo_res_x * .05, demo_res_y * .05);
-            CURRENT_SCENE.background = demo_load_texture(DEMO_GAME_SCENES[CURRENT_SCENE.id].scn_background, demo_res_x, demo_res_y);
-            demo_make_demo_hotspots(CURRENT_SCENE.hotspots);
-            for (int i = 0; i < 4; ++i)
-            {
-                demo_make_demo_hotspots(DEMO_GAME_SCENES[i].hotspots);
-            }
-            DEMO_GAME_SCENES[0].hotspots[0].edge.to = DEMO_GAME_SCENES[0].id + 1;
-            DEMO_GAME_SCENES[1].hotspots[0].edge.to = DEMO_GAME_SCENES[1].id + 1;
-            DEMO_GAME_SCENES[2].hotspots[0].edge.to = DEMO_GAME_SCENES[2].id + 1;
-            DEMO_GAME_SCENES[3].hotspots[0].edge.to = DEMO_GAME_SCENES[0].id;
+            current_cursor_texture = demo_load_texture(demo_cursors.paths[0], demo_res_x * .05, demo_res_y * .05);
+            refresh_hotspots(&CURRENT_SCENE);
         }
+
         float dt = GetFrameTime();
 
         BeginDrawing();
         ClearBackground(BLACK);
         BeginMode2D(DEMO_CAM);
-        DrawTexture(CURRENT_SCENE.background, 0, 0, WHITE);
-        DrawText(CURRENT_SCENE.name, demo_res_x / 2, demo_res_y * .1, 20, YELLOW);
-        DrawText(TextFormat("CURRENT_HOTSPOT_IN_SCENE: %i", CURRENT_HOTSPOT_IN_SCENE), demo_res_x / 2, demo_res_y * .12, 20, YELLOW);
+        
+            draw_scene(&CURRENT_SCENE, DEMO_GAME_TEXTURES, demo_res_x, demo_res_y);
+            int font_s = 20;
+            DrawText(CURRENT_SCENE.name, TOP_LEFT.x, TOP_LEFT.y, font_s, YELLOW);
+            DrawText(TextFormat("CURRENT_HOTSPOT_IN_SCENE: %i", CURRENT_HOTSPOT_IN_SCENE), TOP_LEFT.x, TOP_LEFT.y+font_s, font_s, YELLOW);
 #define in_z TextFormat("%i", (int)in_hotspot)
-        DrawText(in_z, demo_res_x / 2, demo_res_y * .14, 20, YELLOW);
-        CURRENT_HOTSPOT_IN_SCENE = demo_search_hotspots(CURRENT_SCENE.hotspots, CURRENT_SCENE.hotspot_count, &in_hotspot, GetMousePosition());
+            DrawText(in_z, TOP_LEFT.x, TOP_LEFT.y+font_s*2 , 20, YELLOW);
+
+            CURRENT_HOTSPOT_IN_SCENE = demo_search_hotspots(CURRENT_SCENE.hotspots, CURRENT_SCENE.hotspot_count, &in_hotspot, GetMousePosition());
         if (IsKeyDown(KEY_ONE))
         {
-            for (size_t i = 0; i < 5; ++i)
-            {
-                draw_hotspot(CURRENT_SCENE.hotspots[i]);
-            }
+            refresh_hotspots(&CURRENT_SCENE);
+            if(CURRENT_SCENE.hotspot_count == 0) {DrawText("NO HOTSPOTS", GetScreenWidth() / 2, GetScreenHeight() / 2, 20, RED);}
+            demo_draw_hotspots(CURRENT_SCENE.hotspots, CURRENT_SCENE.hotspot_count);
         }
         // maybe just use the bool
         if (in_hotspot)
@@ -500,9 +520,10 @@ void demo_test(void)
             if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
             {
                 bool update_sound = TextIsEqual(CURRENT_SCENE.name, DEMO_GAME_SCENES[nid].scn_name);
-                update_scene(&CURRENT_SCENE, &DEMO_GAME_SCENES[nid], update_sound);
+                update_scene(&CURRENT_SCENE, &DEMO_GAME_SCENES[nid], update_sound, DEMO_GAME_TEXTURES);
             }
         }
+        
         DrawTexture(current_cursor_texture, GetMouseX(), GetMouseY(), WHITE);
         EndMode2D();
         // END_DRAW // END_DRAW // END_DRAW // END_DRAW // END_DRAW // // END_DRAW // END_DRAW // END_DRAW // END_DRAW // END_DRAW // // END_DRAW // END_DRAW // END_DRAW // END_DRAW // END_DRAW //
