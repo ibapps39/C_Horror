@@ -684,17 +684,18 @@ void demo_test(void)
     Item* PLAYER_INVENTORY = (Item*)malloc(sizeof(Item) * MAX_INVENTORY);
     Hotspot INVENTORY_HOTSPOTS[MAX_INVENTORY];
     setup_inventory(DEMO_SPRITE_KEYS, PLAYER_INVENTORY, MAX_INVENTORY, INVENTORY_HOTSPOTS);
+    KeyboardKey INVENTORY_KEY = KEY_I;
     
     bool hotspot_clicked = false;
     float hs_clicked_time = 0.0f;
     const float time_to_hint = 5.0f;
     // could expand conditions (difficulty, etc)
     bool show_hint = hs_clicked_time >= time_to_hint;
-    Texture2D hint_texture = demo_load_texture(demo_ui_imgs.paths[0], 100, 100);
+    Texture2D hint_texture = demo_load_texture(demo_ui_imgs.paths[0], 50, 50);
 
     while (!WindowShouldClose())
     {
-        if(hotspot_clicked || (hs_clicked_time > time_to_hint*2)) hs_clicked_time = 0;
+        if(hotspot_clicked || (hs_clicked_time > time_to_hint*2)) hs_clicked_time = 0; 
 
         if (!IsSoundPlaying(CURRENT_SCENE.sound))
         {
@@ -737,7 +738,7 @@ void demo_test(void)
         }
 
         
-        if(IsKeyPressed(KEY_T))
+        if(IsKeyPressed(INVENTORY_KEY))
         {
             toggle_inv = !toggle_inv;
         }
