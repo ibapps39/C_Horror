@@ -224,7 +224,7 @@ void draw_hotspot(const Hotspot h)
 
 int demo_search_hotspots(const Hotspot *hotspots, const int num_hotspots, bool *in_hotspot, const Vec2 cursor_pos)
 {
-    if(!hotspots) DEFAULT_ERROR_CODE;
+    if(!hotspots) return DEFAULT_ERROR_CODE;
     *in_hotspot = false; // Assume false until proven otherwise
 
     for (size_t i = 0; i < num_hotspots; ++i)
@@ -236,7 +236,7 @@ int demo_search_hotspots(const Hotspot *hotspots, const int num_hotspots, bool *
             return i;
         }
     }
-    DEFAULT_ERROR_CODE;
+    return DEFAULT_ERROR_CODE;
 }
 
 bool demo_load_sounds(const char *dir, Sound *dst)
@@ -327,7 +327,7 @@ Demo_Scene Demo_Scene_Init(
     {
         scene.hotspots[i] = demo_create_hotspot((Vec2){0}, 0, 0, TRANSITION, (Demo_Edge){0}, 0, NULL);
     }
-    total_scene_count+=1;
+    *(total_scene_count)++;
     return scene;
 }
 
@@ -354,7 +354,6 @@ void update_scene(Current_Scene *current_scene, Demo_Scene *incoming_scene, bool
     current_scene->background = BCKGRD_TEX_CACHE[incoming_scene->id];
     current_scene->id = incoming_scene->id;
     current_scene->name = incoming_scene->scn_name;
-    current_scene->sound;
     current_scene->hotspots = incoming_scene->hotspots;
     current_scene->edge_count = incoming_scene->demo_edge_count;
     current_scene->hotspot_count = incoming_scene->hotspot_count;
@@ -372,7 +371,7 @@ static int get_trailing_num(const char *str)
     while (i >= 0 && str[i] >= '0' && str[i] <= '9')
         i--;
     if (i + 1 > num_end)
-        DEFAULT_ERROR_CODE; // No number found
+        return DEFAULT_ERROR_CODE; // No number found
 
     int val = 0;
     for (int j = i + 1; j <= num_end; j++)
@@ -529,7 +528,7 @@ void open_inventory(bool on, Item* inventory, unsigned char MAX_INVENTORY)
     }
 }
 
-void setup_texkeys(const FilePathList list, const Texture2D* texture_pool, Texture_Key* texs, const int w, const int h)
+void setup_texkeys(const FilePathList list, Texture2D* texture_pool, Texture_Key* texs, const int w, const int h)
 {
     for (size_t i = 0; i < (size_t)list.count; ++i)
     {
@@ -725,7 +724,6 @@ void demo_test(void)
         
         if (IsKeyDown(KEY_ONE))
         {
-            
             
             if (CURRENT_SCENE.hotspot_count == 0)
             {
