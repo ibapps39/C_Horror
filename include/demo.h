@@ -427,8 +427,6 @@ void demo_hotspot_spots_adjust(Hotspot *hotspots, int count, float recw, float r
     }
 }
 
-
-
 void draw_scene(Current_Scene *CS, Texture2D *TEXTURE_POOL, int internal_res_x, int internal_res_y)
 {
     Rectangle src = {0, 0, internal_res_x, internal_res_y};
@@ -691,7 +689,7 @@ void demo_test(void)
     // could expand conditions (difficulty, etc)
     bool show_hint = hs_clicked_time >= time_to_hint;
     Texture2D hint_texture = demo_load_texture(demo_ui_imgs.paths[0], 50, 50);
-
+    
     while (!WindowShouldClose())
     {
         if(hotspot_clicked || (hs_clicked_time > time_to_hint*2)) hs_clicked_time = 0; 
